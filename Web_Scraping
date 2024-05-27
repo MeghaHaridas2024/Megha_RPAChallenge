@@ -1,0 +1,156 @@
+from RPA.Browser.Selenium import Selenium
+from RPA.FileSystem import FileSystem
+from RPA.Excel.Files import Files 
+from urllib.parse import urlparse
+import re
+import os
+
+def web_scraping(url):
+    browser = Selenium()
+    #SEARCH PHRASE
+    a = 'Health'
+    #OPEN BROWSER
+    browser.open_available_browser(url)
+    browser.set_selenium_implicit_wait(12)
+
+    browser.maximize_browser_window()
+    browser.set_selenium_page_load_timeout(15)
+    browser.set_selenium_implicit_wait(12)
+    #INPUT SEARCH PHRASE IN FIELD
+    browser.click_button_when_visible('//button[@data-element="search-button"]')
+    browser.set_selenium_implicit_wait(10)
+    browser.input_text_when_element_is_visible('//input[@data-element="search-form-input"]',a)
+    browser.submit_form()
+
+    browser.set_selenium_implicit_wait(10)
+    browser.set_selenium_page_load_timeout(12)
+
+    browser.select_from_list_by_index('//select[@class="select-input"]','1')
+    try:
+        browser.wait_until_page_contains_element('//div[@class="loading-icon"]',8)
+    except:
+        pass
+    browser.set_action_chain_delay(30)
+    browser.wait_until_page_does_not_contain_element('//div[@class="loading-icon"]',30)
+    browser.set_selenium_page_load_timeout(12)
+    browser.set_action_chain_delay(30)
+
+    #EXTRACTING NEWS HEADLINES
+    title=browser.find_elements('//h3[@class="promo-title"]')
+    browser.set_action_chain_delay(15)
+
+    titlenews=[]
+    tsc =[]
+    price=[]
+    for t in title:
+        titlenews.append(t.text)
+        g=t.text
+    #CALCULATING COUNT OF SEARCH PHRASE IN NEWS TITLE
+        cnt= g.lower().count(a.lower())
+        tsc.append(cnt)
+    #SEARCHING FOR MONEY DETAILS IN NEWS TITLE
+        x=bool(re.findall('\$.*\d|\d.*USD|\d.*dollars',g))
+        price.append(x)
+    #return titlenews
+
+    date=browser.find_elements('//p[@class="promo-timestamp"]')
+    browser.set_action_chain_delay(15)
+
+    #EXTRACTING DATE OF NEWS HEADLINES
+    datenews=[]
+    for d in date:
+        datenews.append(d.text)
+
+    #EXTRACTING DESCRIPTION OF NEWS HEADLINES
+    descrip=browser.find_elements('//p[@class="promo-description"]')
+    browser.set_action_chain_delay(15)
+
+    descripnews=[]
+    dessc=[]
+    pdes=[]
+    for des in descrip:
+        descripnews.append(des.text)
+        h=des.text
+        #CALCULATING COUNT OF SEARCH PHRASE IN NEWS DESCRIPTION
+        dpcnt=h.lower().count(a.lower())
+        dessc.append(dpcnt)
+        #SEARCHING FOR MONEY DETAILS IN NEWS DESCRIPTION
+        y= bool(re.findall('\$.*\d|\d.*USD|\d.*dollars',h))
+        pdes.append(y)
+
+    #CALCULATING THE TOTAL COUNT OF SEARCH PHRASE IN NEWS TITLE AND DESCRIPTION
+    k = []
+    k = [tsc[m] + dessc[m] for m in range(len(title))]
+
+
+    #EXTRACTING IMAGE ATTRIBUTE OF NEWS HEADLINES
+    image=browser.find_elements('//img[@class="image"]')
+
+    browser.set_action_chain_delay(15)
+
+    image_filenames= []
+    for img in image:
+        image_url= img.get_attribute('alt')
+        if image_url:
+            parsed_url= urlparse(image_url)
+            #image_filename= os.path.basename(parsed_url.path)
+            image_filenames.append(parsed_url.path)
+
+    browser.auto_close={'False'}
+    return [title,titlenews,datenews,descripnews,image_filenames,k,price,pdes]
+
+def excel(title,titlenews,datenews,descripnews,image_filenames,k,price,pdes):
+    #IMPORTING THE EXTRACTED DATA INTO AN EXCEL FILE
+    exc =Files()
+
+    exc.create_workbook('output/NewsData.xlsx',fmt='xlsx',sheet_name='Data')
+
+    #PROVIDE HEADER DETAILS
+    headerdata = ["Title", "Date", "Description", "Image Filename", "Count Search Phase", "Money Info Title", "Money Info Descrip"]
+    exc.append_rows_to_worksheet([headerdata], 'Data')
+
+    #exc._set_fill_color('A1:G1',558585)
+    exc.set_styles('A1:G1',bold=True, cell_fill='C7D8DD', color='000000')
+
+
+    #INSERTING DATA INTO EACH COLUMN
+    j =2
+    while j <= (len(title)):
+        for item in titlenews:
+            exc.set_cell_value(j,1,item,'Data')
+            j=j+1
+        j =2
+        for ditem in datenews:
+            exc.set_cell_value(j,2,ditem,'Data')
+            j=j+1
+
+        j =2
+        for descpitem in descripnews:
+            exc.set_cell_value(j,3,descpitem,'Data')
+            j=j+1
+        j =2
+        for imgitem in image_filenames:
+            exc.set_cell_value(j,4,imgitem,'Data')
+            j=j+1
+        j =2
+        for phrase in k:
+            exc.set_cell_value(j,5,phrase,'Data')
+            j=j+1
+        j =2
+        for montitle in price:
+            exc.set_cell_value(j,6,montitle,'Data')
+            j=j+1
+        j =2
+        for mondes in pdes:
+            exc.set_cell_value(j,7,mondes,'Data')
+            j=j+1
+
+    exc.save_workbook()
+    exc.close_workbook()
+
+def main():
+    Extract=web_scraping('https://latimes.com/')
+    excel(Extract[0],Extract[1],Extract[2],Extract[3],Extract[4],Extract[5],Extract[6],Extract[7])
+
+if __name__== "__main__":
+    main()
