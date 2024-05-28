@@ -1,3 +1,4 @@
+from robocorp.tasks import task
 from RPA.Browser.Selenium import Selenium
 from RPA.FileSystem import FileSystem
 from RPA.Excel.Files import Files 
@@ -147,7 +148,7 @@ def excel(title,titlenews,datenews,descripnews,image_filenames,k,price,pdes):
 
     exc.save_workbook()
     exc.close_workbook()
-
+@task
 def main():
     Extract=web_scraping('https://latimes.com/')
     excel(Extract[0],Extract[1],Extract[2],Extract[3],Extract[4],Extract[5],Extract[6],Extract[7])
